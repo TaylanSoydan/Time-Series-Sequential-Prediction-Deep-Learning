@@ -1,0 +1,32 @@
+INDICATOR:
+MACD, MIRROR INDICATOR, EMA
+
+MODEL:
+HCRYSTALLBALL, ARIMA, NICE, VECM, GA-ANN, PROPHET
+
+SCHEME:
+CLASSIFY=rocket
+genetic algoyla neuron seçimi
+
+TODO:
+stationary test: Augmented Dickey-Fuller (ADF) (using AR of any order p and supporting modeling of time trends),
+ the Phillips-Perron test (PP) (adding robustness to unspecified autocorrelation and heteroscedasticity)
+ and the ADF-GLS test (locally de-trending data to deal with constant and linear trends).
+Another prominent test for the presence of a unit root is the KPSS test. [Kwiatkowski et al, 1992]
+NON PARAMETRIC TESTS
+ACF PACF
+Your time series may actually be a random walk, and some ways to check this are as follows:
+
+The time series shows a strong temporal dependence (autocorrelation) that decays linearly or in a similar pattern.
+The time series is non-stationary and making it stationary shows no obviously learnable structure in the data.
+The persistence model (using the observation at the previous time step as what will happen in the next time step)
+ provides the best source of reliable predictions.
+
+make stationary:
+df = df - rolling mean
+
+
+HORIZON 5 DAYDEN SONRA SAPITIYO
+WINDOW 50-60 DAY İYİ
+
+DATA > ANN predict et, BUNUN RESIDUALLARINI ARIMAYLA PREDICT ET -> error forecast, integrate them
