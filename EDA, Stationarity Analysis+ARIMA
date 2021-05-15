@@ -1,0 +1,320 @@
+
+from statsmodels.tsa.stattools import grangercausalitytests
+import matplotlib.pyplot as plt
+import pandas as pd
+import statsmodels.api as sm
+import numpy as np
+import pandas as pd
+from matplotlib import pyplot as plt
+from statsmodels.tsa.stattools import adfuller
+from statsmodels.tsa.seasonal import seasonal_decompose
+from statsmodels.tsa.arima_model import ARIMA
+from pandas.plotting import register_matplotlib_converters
+from statsmodels.tsa.api import VAR
+from pandas_datareader import data as pdr
+from statsmodels.tsa.stattools import kpss
+from statsmodels.tsa.stattools import adfuller
+from statsmodels.graphics.tsaplots import plot_acf, plot_pacf
+from statsmodels.tsa.vector_ar.vecm import coint_johansen
+from statsmodels.stats.stattools import durbin_watson
+import warnings
+from statsmodels.tools.sm_exceptions import InterpolationWarning
+warnings.simplefilter('ignore', InterpolationWarning)
+##
+data = np.linspace(0,1000, num=1000)
+series =np.exp(2*np.sin(0.05*data))*data + np.random.normal(0, 30, data.shape) * np.tanh(data) * np.sin(data)
+#series = np.sin(data*np.sin(data))+np.sin(data)+np.log(data+1) + (data/100)**2 + np.sin(data/70)*100
+#np.sin(data*data*0.00001) + np.random.normal(0, 0.1, data.shape) + np.cos(0.2*data) + np.tanh(0.3*data) + np.exp(data*0.001)
+#series = denoise(series,0)
+#np.log(data+1)*np.sin((data+1)*0.09) #data
+time = np.arange(0,len(series))
+##
+'''TEK TICKER'''
+ticker = 'AAPL'
+data = pdr.get_data_yahoo(ticker, start="2010-01-01", end="2040-04-30")
+#data = data.tail(1000)
+data = data.reset_index()[-1000:]
+series = np.array(data['Close']) #diff
+time = np.arange(0,len(data['Date']))
+df = pd.DataFrame([])
+df['time'] = time
+df.set_index('time',inplace=True)
+df['series1'] = series
+
+##
+ticker = 'AAPL'
+data = pdr.get_data_yahoo([ticker,'GARAN.IS'], start="2010-01-01", end="2040-04-30")
+#data = data.tail(1000)
+data = data.reset_index()
+series = np.array(data.dropna().iloc[-1000:,1:3]) #diff
+time = np.arange(0,len(series))
+
+
+##
+data = np.linspace(0,1000, num=1000)
+series =data+np.random.normal(0,30,data.shape)
+#np.exp(2*np.sin(0.05*data))*data + np.random.normal(0, 30, data.shape) * np.tanh(data) * np.sin(data)
+series = np.sin(data*np.sin(data))+np.sin(data)+np.log(data+1) + (data/100)**2 + np.sin(data/70)*100
+#np.sin(data*data*0.00001) + np.random.normal(0, 0.1, data.shape) + np.cos(0.2*data) + np.tanh(0.3*data) + np.exp(data*0.001)
+#series = denoise(series,0)
+#np.log(data+1)*np.sin((data+1)*0.09) #data
+time = np.arange(0,len(series))
+df = pd.DataFrame([])
+df['time'] = time
+df.set_index('time',inplace=True)
+df['series1'] = series
+##
+features = 1
+split_1 = int(len(data)*0.9)
+split_2 = int(len(data)*0.95)
+time_test = time[split_2:]
+x_test = series[split_2:]
+#x_valid = x_valid*0.1
+time_train_val = time[:split_2]
+x_train_val = series[:split_2]
+df = pd.DataFrame([])
+df['time'] = time
+df.set_index('time',inplace=True)
+df['series1'] = series[:,0]
+df['series2'] = series[:,1]
+df_differenced = df
+df_differenced= df_differenced.diff().dropna()
+
+
+##
+def granger(series1,series2):
+    #MULTIVARIATE
+    df = pd.DataFrame([])
+    df['series'] = series
+    df['series2'] = time
+    granger_test = sm.tsa.stattools.grangercausalitytests(df, maxlag=2, verbose=True)
+    print('we want p<0.05')
+    return granger_test
+    #want p<0.05
+def adf_test(series, signif=0.05):
+    dftest = adfuller(series, autolag='AIC')
+    adf = pd.Series(dftest[0:4], index=['Test Statistic', 'p-value', '# Lags', '# Observations'])
+    #for key, value in dftest[4].items():
+    #    adf['Critical Value (%s)' % key] = value
+
+    p = adf['p-value']
+    if p <= signif:
+        print(f"ADF TEST: Series is Stationary")
+    else:
+        print(f"ADF TEST: Series is Non-Stationary")
+def kpss_test(series, **kw):
+    statistic, p_value, n_lags, critical_values = kpss(series, **kw, nlags='auto')
+    # Format Output
+#    print(f'KPSS Statistic: {statistic}')
+ #   print(f'p-value: {p_value}')
+  #  print(f'num lags: {n_lags}')
+   # print('Critial Values:')
+    #for key, value in critical_values.items():
+     #   print(f'   {key} : {value}')
+    print(f'KPSS TEST: The series is {"not " if p_value < 0.05 else ""}stationary')
+def diff(x):
+    l = []
+    for i in range(1,len(x)-1):
+        l.append(x[i] - x[i-1])
+    return l
+def log_diff(series):
+    return diff(np.log(series))
+def acfs(X):
+    fig, ax = plt.subplots(1,2, figsize=(10,5))
+    ax[0] = plot_acf(X, ax=ax[0] ,lags=15)
+    ax[1] = plot_pacf(X, ax=ax[1], lags=15)
+    plt.show()
+def cointegration_test(df, alpha=0.05):
+    """Perform Johanson's Cointegration Test and Report Summary"""
+    #MULTIVARIATE
+    out = coint_johansen(df.dropna(),-1,5)
+    d = {'0.90':0, '0.95':1, '0.99':2}
+    traces = out.lr1
+    cvts = out.cvt[:, d[str(1-alpha)]]
+    def adjust(val, length= 6): return str(val).ljust(length)
+
+    # Summary
+    print('Name   ::  Test Stat > C(95%)    =>   Signif  \n', '--'*20)
+    for col, trace, cvt in zip(df.columns, traces, cvts):
+        print(adjust(col), ':: ', adjust(round(trace,2), 9), ">", adjust(cvt, 8), ' =>  ' , trace > cvt)
+def durbin_watson(model_fitted):
+    out = durbin_watson(model_fitted.resid)
+    for col, val in zip(df.columns, out):
+        print(str(col), ':', round(val, 2))
+def invert_transformation(df_train, df_forecast, second_diff=False):
+    """Revert back the differencing to get the forecast to original scale."""
+    df_fc = df_forecast.copy()
+    columns = df_train.columns
+    for col in columns:
+        # Roll back 2nd Diff
+        if second_diff:
+            df_fc[str(col)+'_1d'] = (df_train[col].iloc[-1]-df_train[col].iloc[-2]) + df_fc[str(col)+'_1d'].cumsum()
+        # Roll back 1st Diff
+        df_fc[str(col)+'_forecast'] = df_train[col].iloc[-1] + df_fc[str(col)+'_1d'].cumsum()
+    return df_fc
+def get_stationarity(timeseries):
+    # rolling statistics
+    rolling_mean = timeseries.rolling(window=12).mean()
+    rolling_std = timeseries.rolling(window=12).std()
+    # rolling statistics plot
+    plt.plot(timeseries, color='blue', label='Original')
+    plt.plot(rolling_mean, color='red', label='Rolling Mean')
+    plt.plot(rolling_std, color='black', label='Rolling Std')
+    plt.legend(loc='best')
+    plt.title('Rolling Mean & Standard Deviation')
+    plt.show()
+def check(timeseries):
+    adf_test(timeseries)
+    kpss_test(timeseries)
+def make_stat(timeseries):
+    fig = plt.figure(figsize=(12,6))
+    df_log = np.log(timeseries)
+    rolling_mean_exp_decay = df_log.ewm(halflife=12, min_periods=0, adjust=True).mean()
+    df_log_exp_decay = df_log - rolling_mean_exp_decay
+    df_log_exp_decay.dropna(inplace=True)
+    print('checking log_exp_decay'.upper())
+    rolling_mean = df_log_exp_decay.rolling(window=12).mean()
+    rolling_std = df_log_exp_decay.rolling(window=12).std()
+    # rolling statistics plot
+    plt.subplot(2, 2, 1)
+    plt.plot(df_log_exp_decay, color='blue', label='Original')
+    plt.plot(rolling_mean, color='red', label='Rolling Mean')
+    plt.plot(rolling_std, color='black', label='Rolling Std')
+    plt.legend(loc='best')
+    plt.title('LOG_EXP_DECAY')
+    check(df_log_exp_decay)
+    df_log_shift = df_log - df_log.shift()
+    df_log_shift.dropna(inplace=True)
+    print('checking log_shift'.upper())
+    rolling_mean = df_log_shift.rolling(window=12).mean()
+    rolling_std = df_log_shift.rolling(window=12).std()
+    # rolling statistics plot
+    plt.subplot(2, 2, 2)
+    plt.plot(df_log_shift, color='blue', label='Original')
+    plt.plot(rolling_mean, color='red', label='Rolling Mean')
+    plt.plot(rolling_std, color='black', label='Rolling Std')
+    plt.legend(loc='best')
+    plt.title('LOG_SHIFT')
+    check(df_log_shift)
+
+    df_diff = timeseries.diff().dropna()
+    print('checking diff1'.upper())
+    rolling_mean = df_diff.rolling(window=12).mean()
+    rolling_std = df_diff.rolling(window=12).std()
+    # rolling statistics plot
+    plt.subplot(2, 2, 4)
+    plt.plot(df_diff, color='blue', label='Original')
+    plt.plot(rolling_mean, color='red', label='Rolling Mean')
+    plt.plot(rolling_std, color='black', label='Rolling Std')
+    plt.legend(loc='best')
+    plt.title('DIFF')
+    check(df_diff)
+
+    plt.subplot(2, 2, 3)
+    rolling_mean = df.rolling(window=12).mean()
+    rolling_std = df.rolling(window=12).std()
+    plt.plot(df, color='blue', label='Original')
+    plt.plot(rolling_mean, color='red', label='Rolling Mean')
+    plt.plot(rolling_std, color='black', label='Rolling Std')
+    plt.legend(loc='best')
+    plt.title('original')
+    print('checking original'.upper())
+    check(df)
+    return df_log_exp_decay, df_log_shift, df_diff
+#log, shift, diff = make_stat(df)
+##
+fig = plt.figure()
+
+plt.subplot(2, 2, 1)
+plt.plot(df)
+
+plt.subplot(2, 2, 2)
+plt.plot(df)
+
+plt.subplot(2, 2, 3)
+plt.plot(x, y)
+
+plt.subplot(2, 2, 4)
+plt.plot(x, y)
+
+plt.show()
+##
+
+model = VAR(df)
+res = model.select_order(15)
+print(res.summary())
+model_fit = model.fit(maxlags=15,ic='aic')
+pred = model_fit.forecast(model_fit.endog, steps=10)
+print(pred)
+
+model = VAR(df_differenced)
+results = model.fit(maxlags=15, ic='aic')
+results.summary()
+x = model.select_order(maxlags=12)
+print(x.summary()) #2
+model_fitted = model.fit(2)
+print(model_fitted.summary())
+
+lag_order = results.k_ar
+results.forecast(df.values[-lag_order:], 20)
+# plotting
+results.plot_forecast(20)
+# Evaluation
+fevd = results.fevd(5)
+print(fevd.summary())
+
+# forecasting
+nobs = 200
+pred = results.forecast(results.y, steps=nobs)
+df_forecast = pd.DataFrame(pred, index=df.index[-nobs:], columns=df.columns + '_1d')
+print(df_forecast.tail())
+# show inverted results in a dataframe
+df_results = invert_transformation(df_differenced, df_forecast, second_diff=False)
+print(df_results)
+df_train, df_test = df[0:-nobs], df[-nobs:]
+fig, axes = plt.subplots(nrows=int(len(df.columns)/2), ncols=2, dpi=150, figsize=(8,6))
+for i, (col,ax) in enumerate(zip(df.columns, axes.flatten())):
+    df_results[col+'_forecast'].plot(legend=True, ax=ax).autoscale(axis='x',tight=True)
+    df_test[col][-nobs:].plot(legend=True, ax=ax);
+    ax.set_title(col + ": Forecast vs Actuals")
+    ax.xaxis.set_ticks_position('none')
+    ax.yaxis.set_ticks_position('none')
+    ax.spines["top"].set_alpha(0)
+    ax.tick_params(labelsize=6)
+
+plt.tight_layout()
+
+##
+# ACF PACF
+
+
+# EXPANDING WINDOW
+#https://towardsdatascience.com/machine-learning-part-19-time-series-and-autoregressive-integrated-moving-average-model-arima-c1005347b0d7
+
+
+##
+import datetime
+from datetime import date
+ddate = pd.date_range(end = date.today(), periods = 1000).to_pydatetime().tolist()
+
+
+df_log_shift = df_sorted['order']
+decomposition = seasonal_decompose(df_log_shift, period=1)
+model = sm.tsa.arima.ARIMA((series[:,0]),order=(2,1,2))
+results = model.fit()
+plt.plot(df_log_shift)
+plt.plot(results.fittedvalues, color='red')
+
+predictions_ARIMA_diff = pd.Series(results.fittedvalues, copy=True)
+predictions_ARIMA_diff_cumsum = predictions_ARIMA_diff.cumsum()
+predictions_ARIMA_log = pd.Series(df_log, index=df_log.index)
+predictions_ARIMA_log = predictions_ARIMA_log.add(predictions_ARIMA_diff_cumsum, fill_value=0)
+predictions_ARIMA = np.exp(predictions_ARIMA_log)
+plt.plot(df)
+plt.plot(predictions_ARIMA)
+
+results.plot_predict(1,264)
+
+
+##
+
