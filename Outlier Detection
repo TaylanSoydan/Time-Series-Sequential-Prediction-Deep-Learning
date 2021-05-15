@@ -1,0 +1,123 @@
+import numpy as np
+import pandas as pd
+import matplotlib.pyplot as plt
+from matplotlib import style
+#import the necessary modelling algos.
+from pandas_datareader import data as pdr
+#classifiaction.
+from sklearn.linear_model import LogisticRegression
+from sklearn.svm import LinearSVC,SVC
+from sklearn.neighbors import KNeighborsClassifier
+from sklearn.ensemble import RandomForestClassifier,GradientBoostingClassifier
+from sklearn.tree import DecisionTreeClassifier
+from sklearn.naive_bayes import GaussianNB
+
+#regression
+from sklearn.linear_model import LinearRegression,Ridge,Lasso,RidgeCV
+from sklearn.ensemble import RandomForestRegressor,BaggingRegressor,GradientBoostingRegressor,AdaBoostRegressor
+from sklearn.svm import SVR
+from sklearn.neighbors import KNeighborsRegressor
+
+#model selection
+from sklearn.model_selection import train_test_split,cross_validate
+from sklearn.model_selection import KFold
+from sklearn.model_selection import GridSearchCV
+
+#evaluation metrics
+from sklearn.metrics import mean_squared_log_error,mean_squared_error, r2_score,mean_absolute_error # for regression
+from sklearn.metrics import accuracy_score,precision_score,recall_score,f1_score  # for classification
+
+from sklearn.model_selection import train_test_split
+from sklearn import model_selection, tree, preprocessing, metrics, linear_model
+from sklearn.svm import LinearSVC
+from sklearn.ensemble import GradientBoostingClassifier
+from sklearn.neighbors import KNeighborsClassifier
+from sklearn.naive_bayes import GaussianNB
+from sklearn.linear_model import LinearRegression, LogisticRegression, SGDClassifier
+from sklearn.tree import DecisionTreeClassifier
+from sklearn.model_selection import cross_val_predict
+
+
+import datetime
+import sklearn
+from sklearn.linear_model import LogisticRegression
+from sklearn.svm import SVC
+from sklearn.metrics import accuracy_score
+from sklearn import preprocessing
+from sklearn.preprocessing import StandardScaler, MinMaxScaler, RobustScaler
+from sklearn.metrics import accuracy_score
+from sklearn.model_selection import train_test_split
+
+from sklearn import model_selection, tree, preprocessing, metrics, linear_model
+from sklearn.svm import LinearSVC
+from sklearn.ensemble import GradientBoostingClassifier
+from sklearn.neighbors import KNeighborsClassifier
+from sklearn.naive_bayes import GaussianNB
+from sklearn.linear_model import LinearRegression, LogisticRegression, SGDClassifier
+from sklearn.tree import DecisionTreeClassifier
+from sklearn.metrics import r2_score
+from sklearn.model_selection import GridSearchCV
+from sklearn.ensemble import IsolationForest
+from sklearn.svm import OneClassSVM
+from sklearn.covariance import EllipticEnvelope
+##
+clf=IsolationForest()
+#n_estimators=100, max_samples='auto', contamination=float(.2),max_features=1.0, bootstrap=False, n_jobs=-1, random_state=42, verbose=0
+series = np.sin(np.linspace(1,100,100)) + 10*np.random.rand(100)
+#series = np.linspace(1,100,100)
+series[50] = 25
+series[75] = -100
+series[25] = -50
+time = np.arange(0,len(series))
+##
+ticker = 'AAPL'
+data = pdr.get_data_yahoo(ticker, start="2010-01-01", end="2040-04-30")
+#data = data.tail(1000)
+data = data.reset_index()[-100:]
+series = np.array(data['Close']) #diff
+#series = denoise(series,1)
+time = np.arange(0,len(data['Date']))
+##
+data = pd.Series(series)
+scaler = StandardScaler()
+np_scaled = scaler.fit_transform(data.values.reshape((-1,1)))
+data = pd.DataFrame(np_scaled)
+# train isolation forest
+outliers_fraction = 0.05
+model1 =  IsolationForest(contamination=outliers_fraction)
+model1.fit(data)
+df = pd.DataFrame([])
+df['series'] = series
+df['time'] = time
+df['anomaly_IF'] = pd.Series(model1.predict(data))
+
+a_IF = df.loc[df['anomaly_IF'] == -1, ['time', 'series']]
+''''''
+model2 = OneClassSVM(nu=outliers_fraction, kernel="rbf", gamma=0.01)
+model2.fit(data)
+df['anomaly_SVM'] = pd.Series(model2.predict(data))
+a_SVM = df.loc[df['anomaly_SVM'] == -1, ['time', 'series']]
+''''''
+model3 = EllipticEnvelope(contamination = outliers_fraction)
+model3.fit(data)
+df['anomaly_EE'] = pd.Series(model3.predict(data))
+a_EE = df.loc[df['anomaly_EE'] == -1, ['time', 'series']]
+''''''
+df['sum'] = df[['anomaly_IF','anomaly_SVM','anomaly_EE']].sum(axis=1)
+''''''
+fig, ax = plt.subplots(figsize=(10,6))
+
+ax.plot(df['time'], df['series'], color='blue', label = 'Normal')
+ax.scatter(a_IF['time'],a_IF['series'], color='purple', label = 'Anomaly_IF')
+ax.scatter(a_SVM['time'],a_SVM['series'], color='green', label = 'Anomaly_SVM')
+ax.scatter(a_EE['time'],a_EE['series'], color='red', label = 'Anomaly_EE', alpha=0.5)
+plt.legend()
+plt.show()
+##
+series_no_out, time_no_out = df[df['sum']>-3]['series'],df[df['sum']>-3]['time']
+plt.plot(time,series,label='original')
+plt.plot(time_no_out,series_no_out,label='outlier_removed')
+plt.legend()
+plt.show()
+##
+
