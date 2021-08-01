@@ -26,7 +26,7 @@ make stationary:
 df = df - rolling mean
 
 
-HORIZON 5 DAYDEN SONRA SAPITIYO
-WINDOW 50-60 DAY İYİ
+HORIZON 5 DAY 
+WINDOW 50-60 DAY
 
-DATA > ANN predict et, BUNUN RESIDUALLARINI ARIMAYLA PREDICT ET -> error forecast, integrate them
+DATA > ANN predict, RESIDUALLARINI ARIMAYLA PREDICT ET -> error forecast, integrate them
